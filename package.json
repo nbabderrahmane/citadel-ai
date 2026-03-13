@@ -1,0 +1,60 @@
+{
+  "name": "citadel-ai",
+  "version": "10.3.0",
+  "description": "Enterprise AI dev framework. 42 agents. C-suite governance. Chinese walls. Persistent memory. You talk, they build.",
+  "keywords": [
+    "ai",
+    "agents",
+    "vibe-coding",
+    "framework",
+    "multi-agent",
+    "enterprise",
+    "claude",
+    "openai",
+    "development",
+    "agentic"
+  ],
+  "license": "MIT",
+  "author": "CITADEL Contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nbabderrahmane/citadel-ai.git"
+  },
+  "homepage": "https://github.com/nbabderrahmane/citadel-ai#readme",
+  "bugs": {
+    "url": "https://github.com/nbabderrahmane/citadel-ai/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "citadel": "./bin/citadel.js",
+    "citadel-ai": "./bin/citadel.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "templates",
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "GETTING-STARTED.md",
+    "README.fr.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli/index.js",
+    "prepublishOnly": "npm run build",
+    "agents": "node dist/cli/index.js agents",
+    "verify": "node -e \"import('./dist/agents/registry.js').then(m => { const c = m.getAgentCount(); console.log(c.total + ' agents verified'); if (c.total !== 42) process.exit(1); })\""
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

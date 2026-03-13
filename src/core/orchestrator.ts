@@ -1,0 +1,267 @@
+// ═══════════════════════════════════════════════════════════════
+// CITADEL — Orchestrator (ATLAS Brain)
+// ═══════════════════════════════════════════════════════════════
+
+import type { CitadelConfig, PhaseId, GateId, LLMMessage } from './types.js';
+import { Memory } from './memory.js';
+import { GateSystem } from './gates.js';
+import { LoopManager } from './loops.js';
+import { ChineseWall } from './chinese-wall.js';
+import { createLLMProvider, type ILLMProvider } from '../llm/provider.js';
+import { getAgent, getCSuiteAgents, getAgentsByLevel, AGENT_REGISTRY } from '../agents/registry.js';
+
+// ── Phase Flow ──
+const PHASE_ORDER: PhaseId[] = ['inception', 'specification', 'architecture', 'build', 'validation', 'ship'];
+const PHASE_GATES: Record<PhaseId, GateId> = {
+  inception: 'gate-0',
+  specification: 'gate-1',
+  architecture: 'gate-2',
+  build: 'gate-3',
+  validation: 'gate-3',
+  ship: 'gate-4',
+};
+const PHASE_AGENTS: Record<PhaseId, string[]> = {
+  inception: ['atlas', 'marty', 'linus', 'bruce', 'sean', 'monica'],
+  specification: ['marty', 'teresa', 'strunk', 'jony'],
+  architecture: ['linus', 'codd', 'bruce', 'kelsey', 'harrison', 'alex', 'grace', 'charity'],
+  build: ['uncle-bob', 'dan', 'steipete', 'filippo', 'moxie', 'max', 'dj-patil', 'cyrus', 'chamath', 'karpathy', 'grace', 'charity', 'rich'],
+  validation: ['guido', 'kent', 'brendan', 'jakob', 'razor', 'lisa', 'nate', 'aleyda', 'peep', 'charlie', 'window', 'date', 'deming', 'flyway', 'aaron', 'trail'],
+  ship: ['kelsey', 'bruce', 'atlas'],
+};
+
+// ── Help / stuck detection (multilingual) ──
+const HELP_PATTERNS = [
+  /\bhelp\b/i, /\bstuck\b/i, /\bconfused\b/i, /\blost\b/i,
+  /\baide\b/i, /\bbloqué\b/i, /\bperdu\b/i,
+  /\bayuda\b/i, /\batascado\b/i,
+  /\bhilfe\b/i, /\bfest\b/i,
+  /مساعدة/, /مشكل/,
+  /\bwhat now\b/i, /\bwhat do i do\b/i, /\bwhere am i\b/i,
+  /\bnext\s*step\b/i, /\bque faire\b/i,
+];
+
+export class Orchestrator {
+  private config: CitadelConfig;
+  private memory: Memory;
+  private gates: GateSystem;
+  private loops: LoopManager;
+  private llm: ILLMProvider;
+  private totalTokens = 0;
+
+  constructor(config: CitadelConfig) {
+    this.config = config;
+    this.memory = new Memory(config.projectPath);
+    this.gates = new GateSystem(config.projectPath);
+    this.loops = new LoopManager();
+    this.llm = createLLMProvider(config.llm);
+  }
+
+  getMemory(): Memory { return this.memory; }
+  getGates(): GateSystem { return this.gates; }
+  getTotalTokens(): number { return this.totalTokens; }
+
+  // ═══ Main Entry Point ═══
+  async processMessage(userMessage: string): Promise<string> {
+    const session = this.memory.getSession() ?? this.memory.initSession();
+
+    // Store user message
+    this.memory.addMessage({
+      role: 'user', content: userMessage,
+      phase: session.currentPhase, gate: session.currentGate,
+    });
+
+    // Detect help/stuck
+    if (this.isHelpRequest(userMessage)) {
+      return this.handleHelp();
+    }
+
+    // Route to appropriate agent based on phase
+    const agentId = this.routeMessage(userMessage, session.currentPhase);
+    const agent = getAgent(agentId);
+    if (!agent) return this.handleHelp();
+
+    this.memory.setActiveAgent(agentId);
+
+    // Build context-aware prompt
+    const messages = this.buildPrompt(agent.id, userMessage);
+
+    // Call LLM
+    const response = await this.llm.chat(messages);
+    this.totalTokens += response.tokensUsed;
+
+    // Format response with agent identity
+    const formatted = this.formatResponse(agent.icon, agent.name, agent.title, response.content);
+
+    // Store agent response
+    this.memory.addMessage({
+      role: 'agent', agent: agentId, content: response.content,
+      phase: session.currentPhase, gate: session.currentGate,
+    });
+
+    return formatted;
+  }
+
+  // ═══ Phase Advancement ═══
+  async advancePhase(): Promise<string> {
+    const session = this.memory.getSession();
+    if (!session) return '❌ No active session.';
+
+    const currentGate = PHASE_GATES[session.currentPhase];
+    const { allowed, blockers } = this.gates.canProceed(currentGate);
+
+    if (!allowed) {
+      let msg = `\n🚧 Cannot advance — gate ${currentGate} not passed:\n`;
+      for (const b of blockers) msg += `  ⛔ ${b}\n`;
+      msg += `\nComplete the checks above first.`;
+      return msg;
+    }
+
+    const idx = PHASE_ORDER.indexOf(session.currentPhase);
+    if (idx >= PHASE_ORDER.length - 1) return '🎉 All phases complete! Project is shipped.';
+
+    const nextPhase = PHASE_ORDER[idx + 1];
+    this.memory.setPhase(nextPhase);
+    this.memory.setGate(PHASE_GATES[nextPhase]);
+
+    const agents = PHASE_AGENTS[nextPhase];
+    const agentNames = agents.map(id => {
+      const a = getAgent(id);
+      return a ? `${a.icon} ${a.name}` : id;
+    }).join(', ');
+
+    return `\n✅ Advanced to: ${nextPhase.toUpperCase()}\n📍 Gate: ${PHASE_GATES[nextPhase]}\n👥 Active agents: ${agentNames}\n\nWhat would you like to work on?`;
+  }
+
+  // ═══ Routing Logic ═══
+  private routeMessage(message: string, phase: PhaseId): string {
+    const lower = message.toLowerCase();
+    const available = PHASE_AGENTS[phase] ?? ['atlas'];
+
+    // Direct agent mentions
+    for (const [id, agent] of AGENT_REGISTRY) {
+      if (lower.includes(agent.name.toLowerCase()) || lower.includes(`@${id}`)) {
+        if (available.includes(id)) return id;
+      }
+    }
+
+    // Keyword routing
+    const keywords: Record<string, string[]> = {
+      'linus': ['architecture', 'tech stack', 'adr', 'technical', 'framework', 'typescript', 'backend vs frontend'],
+      'marty': ['product', 'feature', 'user story', 'prd', 'requirement', 'scope', 'mvp', 'user need'],
+      'sean': ['growth', 'analytics', 'seo', 'conversion', 'funnel', 'metric', 'kpi'],
+      'bruce': ['security', 'auth', 'vulnerability', 'encrypt', 'password', 'token', 'owasp'],
+      'monica': ['data', 'database', 'schema', 'migration', 'model', 'ai', 'ml'],
+      'uncle-bob': ['backend', 'api', 'endpoint', 'server', 'service', 'controller', 'route'],
+      'dan': ['frontend', 'component', 'react', 'ui', 'css', 'page', 'layout', 'form'],
+      'steipete': ['mobile', 'ios', 'android', 'swift', 'kotlin', 'app', 'native'],
+      'kelsey': ['deploy', 'docker', 'ci', 'cd', 'infrastructure', 'devops', 'monitor'],
+      'jony': ['design', 'ux', 'wireframe', 'interface', 'user experience'],
+      'filippo': ['login', 'signup', 'authentication', 'oauth', 'session', 'jwt'],
+      'codd': ['table', 'column', 'index', 'normalize', 'relation', 'foreign key', 'sql'],
+      'karpathy': ['prompt', 'llm', 'chatbot', 'ai model', 'gpt', 'claude', 'embedding'],
+      'harrison': ['agent', 'multi-agent', 'tool use', 'mcp', 'langchain', 'agentic'],
+      'alex': ['integration', 'mcp server', 'external api', 'webhook', 'transport'],
+      'kent': ['test', 'coverage', 'tdd', 'unit test', 'integration test'],
+      'guido': ['review', 'code quality', 'refactor', 'clean code'],
+      'charlie': ['pentest', 'hack', 'exploit', 'vulnerability scan'],
+      'grace': ['api', 'rest', 'graphql', 'endpoint', 'openapi', 'swagger', 'contract'],
+      'charity': ['observability', 'logging', 'tracing', 'monitoring', 'dashboard', 'alert', 'sli', 'slo'],
+      'rich': ['documentation', 'docs', 'readme', 'tutorial', 'how-to', 'guide'],
+      'aaron': ['accessibility', 'a11y', 'wcag', 'screen reader', 'keyboard nav', 'aria'],
+      'trail': ['audit', 'audit trail', 'compliance log', 'retention'],
+    };
+
+    for (const [agentId, words] of Object.entries(keywords)) {
+      if (available.includes(agentId) && words.some(w => lower.includes(w))) {
+        return agentId;
+      }
+    }
+
+    // Default to first available agent or atlas
+    return available[0] ?? 'atlas';
+  }
+
+  // ═══ Prompt Builder ═══
+  private buildPrompt(agentId: string, userMessage: string): LLMMessage[] {
+    const agent = getAgent(agentId);
+    if (!agent) return [{ role: 'user', content: userMessage }];
+
+    const context = this.memory.buildContext();
+    const session = this.memory.getSession();
+
+    // Build system prompt with agent personality + rules + context
+    let system = agent.systemPrompt + '\n\n';
+    system += '## YOUR RULES (IMMUTABLE)\n';
+    for (const rule of agent.rules) system += `- ${rule}\n`;
+    system += '\n## YOUR PRINCIPLES\n';
+    for (const p of agent.principles) system += `- ${p}\n`;
+
+    // Chinese Wall enforcement for checkers
+    if (agent.level === 'checker') {
+      system += '\n## CHINESE WALL ENFORCEMENT\n';
+      system += 'You are a CHECKER. You NEVER wrote or built the work you are reviewing.\n';
+      system += 'You provide independent, unbiased review. If you detect that you are being asked to review your own work, REFUSE.\n';
+    }
+
+    system += '\n' + context;
+
+    // Recent conversation for continuity
+    const messages: LLMMessage[] = [{ role: 'system', content: system }];
+
+    if (session) {
+      const recent = session.conversationHistory.slice(-6);
+      for (const msg of recent) {
+        if (msg.role === 'user') {
+          messages.push({ role: 'user', content: msg.content });
+        } else if (msg.role === 'agent') {
+          messages.push({ role: 'assistant', content: msg.content });
+        }
+      }
+    }
+
+    messages.push({ role: 'user', content: userMessage });
+
+    return messages;
+  }
+
+  // ═══ Help Handler ═══
+  private isHelpRequest(message: string): boolean {
+    return HELP_PATTERNS.some(p => p.test(message));
+  }
+
+  private handleHelp(): string {
+    const session = this.memory.getSession();
+    if (!session) return '🏰 Welcome to CITADEL! Run `citadel init` to start.';
+
+    const phase = session.currentPhase;
+    const gate = PHASE_GATES[phase];
+    const progress = this.gates.getProgressSummary(gate);
+    const agents = PHASE_AGENTS[phase].map(id => {
+      const a = getAgent(id);
+      return a ? `  ${a.icon} ${a.name} — ${a.title}` : `  ${id}`;
+    }).join('\n');
+
+    return `
+🏰 CITADEL — Status
+
+📍 Phase: ${phase.toUpperCase()}
+🚧 Gate: ${gate}
+${progress}
+
+👥 Active agents:
+${agents}
+
+💡 What you can do:
+• Describe what you want to build
+• Ask a specific question (I'll route to the right expert)
+• Type "status" to see gate progress
+• Type "advance" to move to next phase
+• Mention an agent by name (@linus, @bruce, etc.)
+`;
+  }
+
+  // ═══ Response Formatter ═══
+  private formatResponse(icon: string, name: string, title: string, content: string): string {
+    return `\n${icon} ${name} (${title}):\n${content}\n`;
+  }
+}

@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify agent count
+        run: |
+          COUNT=$(node -e "import('./dist/agents/registry.js').then(m => console.log(m.getAgentCount().total))")
+          echo "Agent count: $COUNT"
+          if [ "$COUNT" != "42" ]; then
+            echo "❌ Expected 42 agents, got $COUNT"
+            exit 1
+          fi
+
+      - name: Verify CLI commands
+        run: |
+          node dist/cli/index.js help
+          node dist/cli/index.js agents
+
+      - name: Verify Chinese Wall
+        run: |
+          node -e "
+            import('./dist/core/chinese-wall.js').then(({ ChineseWall }) => {
+              const r = ChineseWall.canReview('uncle-bob', 'uncle-bob');
+              if (r.allowed) { console.error('Chinese Wall FAILED'); process.exit(1); }
+              console.log('✅ Chinese Wall enforced');
+            });
+          "
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+      - run: npm ci
+      - run: npm run build
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        continue-on-error: true  # Don't fail if version already published
