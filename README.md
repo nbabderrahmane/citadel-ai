@@ -1,6 +1,5 @@
 # 🏰 CITADEL
 
-**Tu vibecodes. Ta démo marche. Mais est-ce que ton projet repose sur du sable ?**
 
 CITADEL helps serious vibe coders build with structure, memory, and review — so their MVP doesn't collapse under hidden mistakes.
 
