@@ -1,7 +1,7 @@
 {
   "name": "citadel-ai",
-  "version": "10.4.0",
-  "description": "Enterprise AI dev framework. 42 agents. C-suite governance. Chinese walls. Persistent memory. You talk, they build.",
+  "version": "11.0.0",
+  "description": "AI delivery system for non-technical builders. Planning, memory, review, and safer shipping for AI-assisted projects.",
   "keywords": [
     "ai",
     "agents",

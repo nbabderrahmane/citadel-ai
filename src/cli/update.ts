@@ -1,102 +1,201 @@
-import { existsSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { AGENT_REGISTRY } from '../agents/registry.js';
-import { getAgentCount } from '../agents/registry.js';
-import { installAllIDEs, TEAM_FILE_COUNT, writeTeamFiles } from './ide-rules.js';
-import { SKILL_FILE_COUNT, writeSkills } from './skills.js';
-import { writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { AGENT_REGISTRY, getAgentCount } from '../agents/registry.js';
+import { Memory } from '../core/memory.js';
+import { GateSystem } from '../core/gates.js';
+import {
+  AGENTS_DIR,
+  GATES_DIR,
+  HUB_FILE_COUNT,
+  HUB_FILES,
+  INTERNAL_DIR,
+  PROJECT_HUB_DIR,
+  PROJECT_SPECS_DIR,
+  SKILLS_DIR,
+  STATE_DIR,
+  TEAMS_DIR,
+} from '../core/project-layout.js';
 import { banner } from '../ui/terminal.js';
+import { installAllIDEs, TEAM_FILE_COUNT, writeTeamFiles } from './ide-rules.js';
+import { writeAgentPersonas, writeGettingStarted, writeProjectHubTemplates, writeSpecTemplates } from './init.js';
+import { SKILL_FILE_COUNT, writeSkills } from './skills.js';
 
-function writeAgentPersonas(cp: string): void {
-  const d = join(cp, 'agents');
-  mkdirSync(d, { recursive: true });
-  for (const [id, a] of AGENT_REGISTRY) {
-    writeFileSync(join(d, `${id}.md`), [
-      `# ${a.icon} ${a.name} — ${a.title}`,
-      `> ${a.subtitle}`,
-      '',
-      `**Inspiration:** ${a.inspiration}`,
-      `**Philosophy:** "${a.philosophy}"`,
-      `**Level:** ${a.level} | **Team:** ${a.team}`,
-      '',
-      `## Personality`,
-      a.personality,
-      '',
-      `## Voice`,
-      a.voice,
-      '',
-      `## Rules (Immutable)`,
-      ...a.rules.map(r => `- ${r}`),
-      '',
-      `## Principles`,
-      ...a.principles.map(p => `- ${p}`),
-      '',
-      `## System Prompt`,
-      a.systemPrompt,
-    ].join('\n') + '\n', 'utf-8');
+function ensureDir(path: string): void {
+  mkdirSync(path, { recursive: true });
+}
+
+function copyIfMissing(from: string, to: string): boolean {
+  if (!existsSync(from) || existsSync(to)) return false;
+  ensureDir(dirname(to));
+  copyFileSync(from, to);
+  return true;
+}
+
+function appendGitignore(projectPath: string): void {
+  const gitignorePath = join(projectPath, '.gitignore');
+  const required = ['.citadel/state/', '.citadel/gates/'];
+
+  if (!existsSync(gitignorePath)) {
+    writeFileSync(gitignorePath, `# CITADEL internal state\n${required.join('\n')}\n`, 'utf-8');
+    return;
+  }
+
+  const current = readFileSync(gitignorePath, 'utf-8');
+  const missing = required.filter(line => !current.includes(line));
+  if (!missing.length) return;
+  appendFileSync(gitignorePath, `\n# CITADEL internal state\n${missing.join('\n')}\n`, 'utf-8');
+}
+
+function migrateLegacyState(projectPath: string): string[] {
+  const legacyDir = join(projectPath, INTERNAL_DIR, 'memory');
+  const targetDir = join(projectPath, STATE_DIR);
+  const migrated: string[] = [];
+
+  for (const file of ['project.json', 'decisions.json', 'errors.json', 'session.json']) {
+    if (copyIfMissing(join(legacyDir, file), join(targetDir, file))) migrated.push(file);
+  }
+
+  return migrated;
+}
+
+function migrateLegacyProjectHub(projectPath: string): string[] {
+  const legacyDir = join(projectPath, INTERNAL_DIR, 'vault');
+  const targetDir = join(projectPath, PROJECT_HUB_DIR);
+  const migrated: string[] = [];
+  const map: Array<[string, string]> = [
+    ['PROGRESS.md', HUB_FILES.status],
+    ['CONTEXT_SNAPSHOT.md', HUB_FILES.context],
+    ['SESSION_LOG.md', HUB_FILES.sessionLog],
+    ['DECISIONS.md', HUB_FILES.decisions],
+    ['CODE_INVENTORY.md', HUB_FILES.codebase],
+    ['ARCHITECTURE.md', HUB_FILES.architecture],
+  ];
+
+  for (const [fromName, toName] of map) {
+    if (copyIfMissing(join(legacyDir, fromName), join(targetDir, toName))) migrated.push(`${fromName} -> ${toName}`);
+  }
+
+  return migrated;
+}
+
+function migrateLegacySpecs(projectPath: string): string[] {
+  const legacyDir = join(projectPath, INTERNAL_DIR, 'specs');
+  const targetDir = join(projectPath, PROJECT_SPECS_DIR);
+  const migrated: string[] = [];
+
+  for (const file of ['prd.md', 'adr.md', 'security.md', 'data-model.md', 'growth.md']) {
+    if (copyIfMissing(join(legacyDir, file), join(targetDir, file))) migrated.push(file);
+  }
+
+  return migrated;
+}
+
+function ensureSessionAndGates(projectPath: string): void {
+  const memory = new Memory(projectPath);
+  if (!memory.getSession()) memory.initSession();
+
+  const gates = new GateSystem(projectPath);
+  for (const gateId of ['gate-0', 'gate-1', 'gate-2', 'gate-3', 'gate-4'] as const) {
+    const gatePath = join(projectPath, GATES_DIR, `${gateId}.json`);
+    if (!existsSync(gatePath)) gates.initGate(gateId);
   }
 }
 
 export async function updateCommand(): Promise<void> {
-  const pp = process.cwd();
-  const cp = join(pp, '.citadel');
+  const projectPath = process.cwd();
+  const citadelPath = join(projectPath, INTERNAL_DIR);
 
-  if (!existsSync(cp)) {
+  if (!existsSync(citadelPath)) {
     console.log('❌ No CITADEL project found. Run: npx citadel-ai init');
     process.exit(1);
   }
 
   console.log(banner());
-  console.log('⏳ Updating CITADEL framework files...\n');
-  console.log('  ⚠️  Your data is safe — vault/, specs/, memory/, gates/ are NOT touched.\n');
+  console.log('⏳ Updating CITADEL framework files and migrating the project hub...\n');
 
-  // Update framework files ONLY
-  writeAgentPersonas(cp);
-  console.log(`  ✅ .citadel/agents/  — ${AGENT_REGISTRY.size} agent personas updated`);
+  for (const dir of [
+    citadelPath,
+    join(projectPath, STATE_DIR),
+    join(projectPath, GATES_DIR),
+    join(projectPath, AGENTS_DIR),
+    join(projectPath, TEAMS_DIR),
+    join(projectPath, SKILLS_DIR),
+    join(projectPath, PROJECT_HUB_DIR),
+    join(projectPath, PROJECT_SPECS_DIR),
+  ]) {
+    ensureDir(dir);
+  }
 
-  writeTeamFiles(cp);
-  console.log(`  ✅ .citadel/teams/   — ${TEAM_FILE_COUNT} team files updated`);
+  const migratedState = migrateLegacyState(projectPath);
+  const migratedHub = migrateLegacyProjectHub(projectPath);
+  const migratedSpecs = migrateLegacySpecs(projectPath);
 
-  writeSkills(cp);
-  console.log(`  ✅ .citadel/skills/  — ${SKILL_FILE_COUNT} engineering standards updated`);
+  writeFileSync(join(citadelPath, 'citadel.config.json'), JSON.stringify({
+    version: '11.0.0',
+    features: { autoGates: true, persistentMemory: true, chineseWalls: true },
+  }, null, 2), 'utf-8');
 
-  installAllIDEs(pp);
-  console.log('  ✅ AGENTS.md         — updated');
-  console.log('  ✅ CLAUDE.md         — updated');
-  console.log('  ✅ .cursorrules      — updated');
-  console.log('  ✅ GEMINI.md         — updated');
-  console.log('  ✅ .windsurfrules    — updated');
-  console.log('  ✅ Slash commands    — updated');
+  ensureSessionAndGates(projectPath);
 
-  // Create vault if it doesn't exist (for users upgrading from pre-1.5)
-  const vaultDir = join(cp, 'vault');
-  if (!existsSync(vaultDir)) {
-    mkdirSync(vaultDir, { recursive: true });
-    writeFileSync(join(vaultDir, 'PROGRESS.md'), `# Project Progress\n\n## Current State\n- **Phase:** Unknown (upgraded from older version)\n- **Status:** Check .citadel/specs/ for existing work\n\n## Next\n- [ ] Review existing specs\n- [ ] Continue building\n`, 'utf-8');
-    writeFileSync(join(vaultDir, 'CONTEXT_SNAPSHOT.md'), `# Context Snapshot\n\n## Last Updated\nCreated during upgrade to v1.5+\n\n## Where We Left Off\nProject upgraded from older CITADEL version. Check specs/ for existing work.\n`, 'utf-8');
-    writeFileSync(join(vaultDir, 'SESSION_LOG.md'), `# Session Log\n\n---\n\n### Session: Upgrade\n- **Date:** ${new Date().toISOString().split('T')[0]}\n- **Action:** Upgraded CITADEL to v1.5+ (vault memory system added)\n\n---\n`, 'utf-8');
-    writeFileSync(join(vaultDir, 'DECISIONS.md'), `# Decisions Log\n\n<!-- Decisions will be appended by C-Suite agents -->\n`, 'utf-8');
-    writeFileSync(join(vaultDir, 'CODE_INVENTORY.md'), `# Code Inventory\n\n<!-- Updated by maker agents -->\n`, 'utf-8');
-    writeFileSync(join(vaultDir, 'ARCHITECTURE.md'), `# Architecture\n\n<!-- Updated by LINUS (CTO) -->\n`, 'utf-8');
-    console.log('  ✅ .citadel/vault/   — created (new in this version)');
+  writeAgentPersonas(citadelPath);
+  writeTeamFiles(citadelPath);
+  writeSkills(citadelPath);
+  writeSpecTemplates(projectPath, false);
+  writeProjectHubTemplates(projectPath, false);
+  writeGettingStarted(projectPath, false);
+  new Memory(projectPath).refreshProjectHub();
+  installAllIDEs(projectPath);
+  appendGitignore(projectPath);
+
+  console.log(`  ✅ ${AGENT_REGISTRY.size} agent personas updated (${AGENTS_DIR}/)`);
+  console.log(`  ✅ ${TEAM_FILE_COUNT} team files updated (${TEAMS_DIR}/)`);
+  console.log(`  ✅ ${SKILL_FILE_COUNT} skills updated (${SKILLS_DIR}/)`);
+  console.log(`  ✅ Visible project hub ensured (${PROJECT_HUB_DIR}/, ${HUB_FILE_COUNT} files)`);
+  console.log(`  ✅ Internal state ensured (${STATE_DIR}/, ${GATES_DIR}/)`);
+  console.log('  ✅ AGENTS.md, CLAUDE.md, .cursorrules, GEMINI.md, .windsurfrules updated');
+
+  if (migratedState.length) {
+    console.log(`  ✅ Migrated legacy runtime state: ${migratedState.join(', ')}`);
   } else {
-    console.log('  ⏭️  .citadel/vault/   — kept as-is (your data)');
+    console.log('  ⏭️  Runtime state already aligned with v11');
+  }
+
+  if (migratedHub.length) {
+    console.log(`  ✅ Migrated legacy vault files into ${PROJECT_HUB_DIR}/`);
+  } else {
+    console.log(`  ⏭️  No vault migration needed for ${PROJECT_HUB_DIR}/`);
+  }
+
+  if (migratedSpecs.length) {
+    console.log(`  ✅ Migrated legacy specs into ${PROJECT_SPECS_DIR}/`);
+  } else {
+    console.log(`  ⏭️  Specs already present in ${PROJECT_SPECS_DIR}/`);
   }
 
   const c = getAgentCount();
   console.log(`
-✅ CITADEL updated to v10.3.0 — ${c.total} agents.
+✅ CITADEL updated to v11.0.0 — ${c.total} agents.
 
-  What was updated:
-    agents/     → Latest agent personas and rules
-    teams/      → Latest team files for phased loading
-    IDE rules   → Latest AGENTS.md, CLAUDE.md, GEMINI.md, etc.
-    Commands    → Latest slash commands
+  Visible project hub:
+    ${PROJECT_HUB_DIR}/STATUS.md
+    ${PROJECT_HUB_DIR}/CONTEXT.md
+    ${PROJECT_HUB_DIR}/DECISIONS.md
+    ${PROJECT_HUB_DIR}/ARCHITECTURE.md
+    ${PROJECT_HUB_DIR}/CODEBASE.md
+    ${PROJECT_HUB_DIR}/RUNBOOK.md
+    ${PROJECT_HUB_DIR}/HANDOFF.md
+    ${PROJECT_SPECS_DIR}/
 
-  What was NOT touched:
-    vault/      → Your project memory (progress, decisions, etc.)
-    specs/      → Your PRD, ADR, security, data model
-    memory/     → Your session state
-    gates/      → Your gate progress
+  Internal engine:
+    ${STATE_DIR}/     → runtime state
+    ${GATES_DIR}/     → gate progress
+    ${AGENTS_DIR}/    → agent personas
+    ${TEAMS_DIR}/     → delivery pods
+    ${SKILLS_DIR}/    → rules + skills
+
+  Legacy compatibility:
+    .citadel/memory/  → still readable if present
+    .citadel/vault/   → migrated when possible, otherwise left untouched
+    .citadel/specs/   → migrated when possible, otherwise left untouched
 `);
 }

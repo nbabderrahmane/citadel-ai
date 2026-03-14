@@ -52,12 +52,20 @@ You'll see something like:
 ✅ CITADEL installed! 42 agents ready.
 
   AGENTS.md   Codex rules (lean, phased loading)
+  citadel/
+  ├── STATUS.md
+  ├── CONTEXT.md
+  ├── DECISIONS.md
+  ├── ARCHITECTURE.md
+  ├── TOKENS.md
+  ├── RUNBOOK.md
+  ├── HANDOFF.md
+  └── specs/
   .citadel/
-  ├── agents/  42 full agent personas (reference)
-  ├── teams/   12 team files and delivery pods (loaded per phase by IDE)
-  ├── specs/   PRD, ADR, Security, Data Model, Growth
-  ├── memory/  Session state (gitignored)
-  └── gates/   Gate progress (gitignored)
+  ├── state/   Session state (gitignored)
+  ├── gates/   Gate progress (gitignored)
+  ├── teams/   Delivery pods
+  └── skills/  Rules and specialist skills
 ```
 
 **Step 5: Start chatting**
@@ -89,10 +97,11 @@ Your AI now works like a team of 42 specialists instead of one generalist brain.
 When you describe what you want to build:
 
 1. **The C-Suite asks questions first** — product, architecture, security, data, growth. You answer.
-2. **Then specs get drafted** — PRD, architecture decisions, security requirements. Saved in `.citadel/specs/`.
+2. **Then specs get drafted** — PRD, architecture decisions, security requirements. Saved in `citadel/specs/`.
 3. **Makers build** — specialized agents write code per domain (backend, frontend, mobile, etc.)
 4. **Checkers review** — independent agents validate the work (the builder never reviews their own code)
 5. **Security has veto power** — nothing ships without a security check
+6. **Token budget stays visible** — you can check `citadel/TOKENS.md` or `status` before a session gets too expensive
 
 ## Useful commands (in the chat)
 
@@ -101,9 +110,13 @@ You can say these things to your AI at any time:
 | What you say | What happens |
 |-------------|-------------|
 | "help" or "I'm stuck" | ATLAS explains where you are and what to do next |
-| "status" | Shows which phase you're in and what's left |
+| "status" | Shows phase, gate, and token budget |
+| "estimate login flow" | Estimates context pressure before the next heavy task |
+| "start" | Runs the clarification and planning flow |
 | "build [feature]" | Starts the build with the right maker agents |
+| "fix [bug]" | Runs the hotfix flow with change-impact review |
 | "review" | Runs the checker team on your code |
+| "ship" | Runs release readiness and rollback checks |
 | "@bruce security check" | Asks the CISO to audit security |
 | Any description of what you want | ATLAS routes to the right expert |
 
@@ -120,7 +133,7 @@ If your IDE reads project files for context (most AI IDEs do), yes. CITADEL crea
 Yes. Run `npx citadel-ai init` in your project folder. It won't modify your existing code — it only adds CITADEL files.
 
 **What if I want to remove CITADEL?**
-Delete the `.citadel/` folder and the rule files (AGENTS.md, CLAUDE.md, GEMINI.md, .cursorrules, .windsurfrules). Your project code is untouched.
+Delete the `citadel/` and `.citadel/` folders plus the rule files (AGENTS.md, CLAUDE.md, GEMINI.md, .cursorrules, .windsurfrules). Your project code is untouched.
 
 **Is this free?**
 Yes. MIT license. Free forever.

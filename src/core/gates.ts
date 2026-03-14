@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { GateId, GateState } from './types.js';
+import { GATES_DIR } from './project-layout.js';
 type GD = { name: string; blocker: string; checks: { id: string; description: string; agent: string }[] };
 const G: Record<string, GD> = {
   'gate-0': { name:'INCEPTION', blocker:'All C-levels must sign off', checks: [{id:'g0-1',description:'Project validated',agent:'orchestrator'},{id:'g0-2',description:'Scope by CPO',agent:'cpo'},{id:'g0-3',description:'Tech by CTO',agent:'cto'},{id:'g0-4',description:'Security by CISO',agent:'ciso'},{id:'g0-5',description:'Data by CDO',agent:'cdo'},{id:'g0-6',description:'Growth by CGO',agent:'cgo'}] },
@@ -11,7 +12,7 @@ const G: Record<string, GD> = {
 };
 export class GateSystem {
   private bp: string;
-  constructor(pp: string) { this.bp = join(pp, '.citadel', 'gates'); }
+  constructor(pp: string) { this.bp = join(pp, GATES_DIR); }
   private gp(id: string): string { return join(this.bp, `${id}.json`); }
   private ld(id: GateId): GateState { const p = this.gp(id); if (existsSync(p)) return JSON.parse(readFileSync(p,'utf-8')); return this.initGate(id); }
   private sv(g: GateState): void { writeFileSync(this.gp(g.id), JSON.stringify(g, null, 2), 'utf-8'); }

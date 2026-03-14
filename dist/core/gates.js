@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { GATES_DIR } from './project-layout.js';
 const G = {
     'gate-0': { name: 'INCEPTION', blocker: 'All C-levels must sign off', checks: [{ id: 'g0-1', description: 'Project validated', agent: 'orchestrator' }, { id: 'g0-2', description: 'Scope by CPO', agent: 'cpo' }, { id: 'g0-3', description: 'Tech by CTO', agent: 'cto' }, { id: 'g0-4', description: 'Security by CISO', agent: 'ciso' }, { id: 'g0-5', description: 'Data by CDO', agent: 'cdo' }, { id: 'g0-6', description: 'Growth by CGO', agent: 'cgo' }] },
     'gate-1': { name: 'PRE-DESIGN', blocker: 'PRD must be approved', checks: [{ id: 'g1-1', description: 'PRD approved', agent: 'cpo' }, { id: 'g1-2', description: 'Stories complete', agent: 'cpo' }] },
@@ -9,7 +10,7 @@ const G = {
 };
 export class GateSystem {
     bp;
-    constructor(pp) { this.bp = join(pp, '.citadel', 'gates'); }
+    constructor(pp) { this.bp = join(pp, GATES_DIR); }
     gp(id) { return join(this.bp, `${id}.json`); }
     ld(id) { const p = this.gp(id); if (existsSync(p))
         return JSON.parse(readFileSync(p, 'utf-8')); return this.initGate(id); }

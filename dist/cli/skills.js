@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-export const SKILL_FILE_COUNT = 11;
+export const SKILL_FILE_COUNT = 15;
 export function writeSkills(citadelPath) {
     const d = join(citadelPath, 'skills');
     mkdirSync(d, { recursive: true });
@@ -52,8 +52,8 @@ export function writeSkills(citadelPath) {
 - Tests must be fast, independent, repeatable. No order dependency.
 
 ## Before Writing Code
-- Read \`.citadel/vault/ARCHITECTURE.md\` — don't contradict existing decisions.
-- Read \`.citadel/vault/CODE_INVENTORY.md\` — know what exists before creating new files.
+- Read \`citadel/ARCHITECTURE.md\` — don't contradict existing decisions.
+- Read \`citadel/CODEBASE.md\` — know what exists before creating new files.
 - If something similar exists, extend it. Don't duplicate.
 `, 'utf-8');
     // ══════════════════════════════════════════
@@ -497,6 +497,159 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 - Haptic feedback on critical actions (iOS: UIImpactFeedbackGenerator, web: navigator.vibrate).
 - Deep link every screen: any URL should open the right view.
 - Handle: slow network, no network, low battery, background/foreground transitions.
+`, 'utf-8');
+    // ══════════════════════════════════════════
+    // CONTEXT MANAGER SKILLS — loaded when resuming, handing off, or budgeting context
+    // ══════════════════════════════════════════
+    writeFileSync(join(d, 'skills_context_manager.md'), `# Context Manager Skills
+
+## Progressive Disclosure
+- Start with the Section Index.
+- Read only the resume, handoff, or context-budget section you need.
+- Do not dump the whole project history into context if a three-line summary is enough.
+
+## Section Index
+- Resume Protocol
+- Handoff Protocol
+- Context Budgeting
+- Fresh Session Recovery
+
+## Resume Protocol
+- Read \`citadel/STATUS.md\` first. That file decides whether you need anything else.
+- Read \`citadel/CONTEXT.md\` only if STATUS lacks enough detail to continue safely.
+- Read \`citadel/HANDOFF.md\` when another session or collaborator prepared a continuation note.
+- Pull in \`citadel/DECISIONS.md\`, \`citadel/ARCHITECTURE.md\`, or \`citadel/CODEBASE.md\` only for the parts touched by the current task.
+
+## Handoff Protocol
+- End each session with 4 things: current phase/mode, what changed, what must not break, and the next recommended step.
+- Handoffs are written for tired humans and fresh agents. Prefer plain language over jargon.
+- If a blocker exists, state the blocker first, then what evidence would unblock it.
+
+## Context Budgeting
+- Budget the context before loading files: light, medium, or heavy.
+- Light: STATUS + one relevant file or skill.
+- Medium: STATUS + CONTEXT/HANDOFF + one domain pod + one domain skill.
+- Heavy: only when architecture or cross-cutting change requires decisions, code map, and multiple specialists.
+- If the task fits in a light budget, refuse to inflate it.
+
+## Fresh Session Recovery
+- If the hub files are missing or empty, treat the project as fresh.
+- If STATUS says Build or Fix, do not restart discovery from zero.
+- If files disagree, trust the latest dated artifact and call out the inconsistency.
+`, 'utf-8');
+    // ══════════════════════════════════════════
+    // HOTFIX / RCA SKILLS — loaded for bug fixing and day-30 maintenance
+    // ══════════════════════════════════════════
+    writeFileSync(join(d, 'skills_hotfix_rca.md'), `# Hotfix and RCA Skills
+
+## Progressive Disclosure
+- Start with the Section Index.
+- Use Hotfix Flow for urgent patches and RCA for recurring or unclear failures.
+- Do not read the whole file when you only need the patch checklist.
+
+## Section Index
+- Hotfix Flow
+- Change Impact
+- Verification
+- RCA
+
+## Hotfix Flow
+1. Define the symptom in one sentence.
+2. Identify the exact user flow, contract, or job that is broken.
+3. Read \`citadel/RUNBOOK.md\` for existing run, deploy, and rollback guidance.
+4. Patch the smallest surface that can restore the behavior safely.
+5. Run checker review and coherence review before calling it fixed.
+
+## Change Impact
+- List files, services, components, contracts, and data touched by the fix.
+- Call out what must not break: auth, billing, onboarding, notifications, analytics, or any protected flow.
+- If the hotfix changes public behavior, update \`citadel/CHANGELOG.md\` and the relevant runbook note.
+
+## Verification
+- Reproduce before the fix when possible.
+- Verify the primary failure path and at least one neighboring path that could regress.
+- Check logs, alerts, or analytics if the bug lives in production behavior rather than local UI only.
+- If rollback is safer than patching now, say so plainly.
+
+## RCA
+- State the root cause, not just the symptom.
+- Distinguish between trigger, contributing factors, and missing safeguards.
+- End with one prevention rule that can be enforced in process, code, tests, or docs.
+`, 'utf-8');
+    // ══════════════════════════════════════════
+    // RELEASE / RUNBOOK SKILLS — loaded before ship or after operational changes
+    // ══════════════════════════════════════════
+    writeFileSync(join(d, 'skills_release_runbook.md'), `# Release and Runbook Skills
+
+## Progressive Disclosure
+- Start with the Section Index.
+- Read only release readiness, rollback, or monitoring sections as needed.
+- This skill is for shipping safely, not for routine feature ideation.
+
+## Section Index
+- Release Readiness
+- Rollback
+- Monitoring
+- Runbook Hygiene
+
+## Release Readiness
+- Confirm the scope that is actually shipping. Do not ship ambiguous work.
+- Verify build, tests, migrations, environment variables, and feature flags.
+- Call out user-facing changes, operational changes, and dependencies separately.
+- No release is "done" until rollback and monitoring are defined.
+
+## Rollback
+- State the rollback trigger: what metric, error, or user signal means "undo this now".
+- State the rollback path: revert deploy, disable feature flag, restore previous config, or run data rollback.
+- If a DB migration is irreversible, call that out before ship and require a backup plan.
+
+## Monitoring
+- Define the first signals to watch: errors, auth failures, latency, job backlog, conversion drop, or support noise.
+- For risky releases, identify a smoke test and a 15-minute watch window after deploy.
+- If no monitoring exists, say the release is higher risk than it appears.
+
+## Runbook Hygiene
+- \`citadel/RUNBOOK.md\` should answer: how to run, how to deploy, how to rollback, what to monitor.
+- Update the runbook when release behavior changes, not weeks later.
+- Keep it short and operational. A runbook is for moments of pressure, not storytelling.
+`, 'utf-8');
+    // ══════════════════════════════════════════
+    // DOCS COHERENCE SKILLS — loaded when code, docs, and plans may drift
+    // ══════════════════════════════════════════
+    writeFileSync(join(d, 'skills_docs_coherence.md'), `# Docs and Code Coherence Skills
+
+## Progressive Disclosure
+- Start with the Section Index.
+- Read only the drift checks or update rules needed for the current task.
+- Use this skill when code, docs, and plans may disagree.
+
+## Section Index
+- Drift Checks
+- Required Documents
+- Update Rules
+- Output Format
+
+## Drift Checks
+- Compare the implementation plan, architecture notes, and codebase map against the actual change.
+- Flag any statement that is no longer true because of the latest implementation.
+- Pay special attention to auth, data flows, public APIs, and deployment steps.
+
+## Required Documents
+- \`citadel/DECISIONS.md\` for architectural or product decisions.
+- \`citadel/ARCHITECTURE.md\` for system design and constraints.
+- \`citadel/CODEBASE.md\` for file and pattern maps.
+- \`citadel/RUNBOOK.md\` for operational behavior.
+- \`citadel/HANDOFF.md\` when the current task changes what the next collaborator needs to know.
+
+## Update Rules
+- If code changes a documented behavior, update the document in the same session.
+- If the document is stale but the change is unrelated, flag it instead of silently rewriting history.
+- Prefer small, truthful updates over big "perfect" docs that never stay current.
+
+## Output Format
+- Coherent: yes or no.
+- Drift found: exact docs or sections that no longer match reality.
+- Required updates: smallest set of document edits needed to restore trust.
 `, 'utf-8');
 }
 //# sourceMappingURL=skills.js.map

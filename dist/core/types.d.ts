@@ -5,6 +5,8 @@ export type GateStatus = 'pending' | 'in-progress' | 'passed' | 'failed' | 'bloc
 export type LoopId = 'design' | 'build' | 'security' | 'debug';
 export type PhaseId = 'inception' | 'specification' | 'architecture' | 'build' | 'validation' | 'ship';
 export type LLMProvider = 'anthropic' | 'openai';
+export type TokenBudgetLevel = 'light' | 'medium' | 'heavy';
+export type TokenBudgetStatus = 'healthy' | 'warning' | 'critical';
 export interface AgentDefinition {
     id: string;
     name: string;
@@ -61,9 +63,48 @@ export interface SessionState {
     currentGate: GateId;
     activeAgent: string;
     conversationHistory: ConversationMessage[];
+    tokenUsage: TokenUsageSnapshot;
     loopState: LoopState | null;
     startedAt: string;
     updatedAt: string;
+}
+export interface TokenUsageSnapshot {
+    totalTokens: number;
+    requestCount: number;
+    lastResponseTokens: number;
+    peakResponseTokens: number;
+    lastAgent: string | null;
+    lastModel: string | null;
+    updatedAt: string | null;
+    byAgent: Record<string, number>;
+}
+export interface TokenBudgetSummary {
+    level: TokenBudgetLevel;
+    limit: number;
+    status: TokenBudgetStatus;
+    used: number;
+    usagePercent: number;
+    requestCount: number;
+    lastResponseTokens: number;
+    peakResponseTokens: number;
+    lastAgent: string | null;
+    lastModel: string | null;
+    updatedAt: string | null;
+    advice: string;
+}
+export interface ContextEstimateSummary {
+    phase: PhaseId;
+    budgetLevel: TokenBudgetLevel;
+    limit: number;
+    estimatedTokens: number;
+    usagePercent: number;
+    status: TokenBudgetStatus;
+    taskHint: string | null;
+    conversationTokens: number;
+    fileTokens: number;
+    systemTokens: number;
+    filesConsidered: string[];
+    advice: string;
 }
 export interface LoopState {
     loopId: LoopId;

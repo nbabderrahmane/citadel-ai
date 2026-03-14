@@ -50,20 +50,30 @@ Read the smallest relevant set:
 
 | Situation | Read these files | Purpose |
 |-----------|------------------|---------|
-| Always first | \`.citadel/skills/rules_essential.md\` + \`.citadel/vault/PROGRESS.md\` | Core rules + current phase |
-| Need session resume | \`.citadel/vault/CONTEXT_SNAPSHOT.md\` | Only if PROGRESS is not enough |
-| Need past decisions | \`.citadel/vault/DECISIONS.md\`, \`.citadel/vault/ARCHITECTURE.md\` | Only if task touches those choices |
+| Always first | \`.citadel/skills/rules_essential.md\` + \`citadel/STATUS.md\` | Core rules + current phase |
+| Need session resume | \`citadel/CONTEXT.md\` + \`citadel/HANDOFF.md\` + \`skills/skills_context_manager.md\` | Only if STATUS is not enough |
+| Need past decisions | \`citadel/DECISIONS.md\`, \`citadel/ARCHITECTURE.md\` | Only if task touches those choices |
+| Need code map | \`citadel/CODEBASE.md\` | Only if the task touches existing files or flows |
 | Inception | \`.citadel/teams/c-suite.md\` | C-level questioning and scope shaping |
 | Pre-design | \`.citadel/teams/cpo-makers.md\` + \`skills/skills_uiux.md\` + \`skills/skills_visual_design.md\` | Product and design direction |
-| Pre-build / planning | \`.citadel/teams/cto-makers.md\` + \`skills/skills_implementation_plan.md\` | Implementation plan before coding |
+| Pre-build / planning | \`.citadel/teams/cto-makers.md\` + \`citadel/specs/implementation-plan.md\` + \`skills/skills_implementation_plan.md\` | Implementation plan before coding |
 | Build frontend/UI | \`.citadel/teams/frontend-pod.md\` + \`skills/skills_frontend.md\` + \`skills/skills_uiux.md\` + \`skills/skills_visual_design.md\` + \`skills/skills_design_system.md\` + \`skills/skills_implementation_plan.md\` | Design + implementation |
 | Build backend | \`.citadel/teams/backend-pod.md\` + \`skills/skills_backend.md\` + \`skills/skills_data.md\` + \`skills/skills_implementation_plan.md\` | Architecture + implementation |
 | Build mobile/PWA | \`.citadel/teams/cto-makers.md\` + \`skills/skills_mobile.md\` + \`skills/skills_uiux.md\` + \`skills/skills_visual_design.md\` + \`skills/skills_implementation_plan.md\` | Mobile delivery |
+| Fix / hotfix | \`citadel/RUNBOOK.md\` + relevant pod + \`skills/skills_hotfix_rca.md\` + \`skills/skills_change_safety.md\` | Patch safely without regressions |
 | Review / coherence | Relevant pod + \`skills/skills_change_safety.md\` + relevant domain skill | Checker review + CTO coherence |
 | Security | \`.citadel/teams/ciso-all.md\` + \`skills/skills_security.md\` + \`skills/skills_change_safety.md\` | Security and release risk |
-| Ship | \`.citadel/teams/cto-makers.md\` + \`.citadel/teams/ciso-all.md\` | Deploy + final sign-off |
+| Docs / coherence | \`citadel/DECISIONS.md\` + \`citadel/CODEBASE.md\` + \`skills/skills_docs_coherence.md\` | Keep docs aligned with the code |
+| Ship / release | \`citadel/RUNBOOK.md\` + \`.citadel/teams/cto-makers.md\` + \`.citadel/teams/ciso-all.md\` + \`skills/skills_release_runbook.md\` | Deploy + rollback + final sign-off |
 
 When you open a skill file, read its **Section Index** first and jump only to the sections you need.
+
+## USER-FACING MODES
+
+- **Start** — clarify the problem, scope, risks, and success criteria.
+- **Build** — implement an approved chunk against the plan.
+- **Fix** — hotfix or refactor with change-impact review before touching code.
+- **Ship** — run release readiness, rollback, monitoring, and security sign-off.
 
 ## AGENT MAP
 
@@ -102,37 +112,44 @@ ${rosterCompact}
 3. BRUCE reviews if security is touched.
 4. Return a single consolidated answer with blockers, risks, and next action.
 
-## MEMORY PROTOCOL (CRITICAL)
+## PROJECT HUB PROTOCOL (CRITICAL)
 
 ### On EVERY session start:
-1. Read \`.citadel/vault/PROGRESS.md\`
-2. Read \`.citadel/vault/CONTEXT_SNAPSHOT.md\` only if PROGRESS is not enough
-3. Read \`.citadel/vault/DECISIONS.md\` or \`.citadel/vault/ARCHITECTURE.md\` only if the task depends on them
+1. Read \`citadel/STATUS.md\`
+2. Read \`citadel/CONTEXT.md\` and \`citadel/HANDOFF.md\` only if STATUS is not enough
+3. Read \`citadel/DECISIONS.md\`, \`citadel/ARCHITECTURE.md\`, or \`citadel/CODEBASE.md\` only if the task depends on them
 
 ### On EVERY phase transition or significant action:
-1. Update \`.citadel/vault/PROGRESS.md\` — current phase, gate, what's done, what's next
-2. Update \`.citadel/vault/SESSION_LOG.md\` — append what was done, by which agent, when
-3. Update \`.citadel/vault/DECISIONS.md\` — append any architecture, tech, or product decision
+1. Update \`citadel/STATUS.md\` — current phase, mode, what's done, what's next
+2. Update \`citadel/SESSION_LOG.md\` — append what was done, by which agent, when
+3. Update \`citadel/DECISIONS.md\` — append any architecture, tech, or product decision
+4. Update \`citadel/CHANGELOG.md\` when the user-visible or operational behavior changes
 
 ### On EVERY session end (or when the user says "stop", "bye", "save"):
-1. Write \`.citadel/vault/CONTEXT_SNAPSHOT.md\` — summary of current state, enough for the next session to resume without re-reading everything
+1. Update \`citadel/CONTEXT.md\` — enough detail for the next session to resume without re-reading everything
+2. Update \`citadel/HANDOFF.md\` — clean summary for the next collaborator or future self
 
 ### When code is written or modified:
-1. Update \`.citadel/vault/CODE_INVENTORY.md\` — what files exist, what they do, key patterns
+1. Update \`citadel/CODEBASE.md\` — what files exist, what they do, key patterns
+2. Update \`citadel/RUNBOOK.md\` if run, deploy, monitoring, or rollback behavior changed
 
-### Vault files:
+### Project hub files:
 
 | File | Purpose | When to read | When to write |
 |------|---------|-------------|---------------|
-| \`PROGRESS.md\` | Phase, gate, what's done/pending | Session start | Every phase change |
-| \`CONTEXT_SNAPSHOT.md\` | Resume context for next session | Session start | Session end |
+| \`STATUS.md\` | Phase, mode, what's done/pending | Session start | Every phase change |
+| \`CONTEXT.md\` | Resume context for next session | Session start | Session end |
 | \`SESSION_LOG.md\` | What happened, who did what | Never (it's a log) | After every action |
 | \`DECISIONS.md\` | Architecture + product decisions | Session start | When decisions are made |
-| \`CODE_INVENTORY.md\` | Files map, patterns, dependencies | When building/reviewing | When code changes |
+| \`CODEBASE.md\` | Files map, patterns, dependencies | When building/reviewing | When code changes |
 | \`ARCHITECTURE.md\` | System design, tech stack, ADRs | When building | After architecture decisions |
+| \`TOKENS.md\` | Session token usage and budget pressure | Before large tasks or when costs spike | After every LLM call |
+| \`RUNBOOK.md\` | Run, deploy, rollback, monitoring | Before fixing or shipping | When ops behavior changes |
+| \`HANDOFF.md\` | Clean continuation note for the next session | When resuming | Session end or team handoff |
 
 ⚠️ If these files are empty or missing, you are in a FRESH PROJECT. Start from Phase 1: Inception.
-⚠️ If PROGRESS.md shows you're in Build phase, do NOT re-ask inception questions.
+⚠️ If STATUS.md shows you're in Build or Fix mode, do NOT restart inception.
+⚠️ Hidden runtime data lives in \`.citadel/state/\`. Human-readable project memory lives in \`citadel/\`.
 
 ## RESPONSE SHAPE
 
@@ -145,18 +162,24 @@ When the task is non-trivial, answer with this order:
 
 ## COMMANDS
 - "help" / "stuck" → Show status + next steps
-- "status" → Read PROGRESS.md, show gate progress
+- "start" → Clarify scope, risks, and success criteria
+- "status" → Read STATUS.md and TOKENS.md, show gate progress and token pressure
+- "estimate [task]" → Estimate next-turn context pressure before loading heavy files
 - "build [feature]" → Start build
+- "fix [bug]" / "hotfix [bug]" → Run change-impact + hotfix workflow
 - "review" → Run checkers
-- "snapshot" / "save" → Write CONTEXT_SNAPSHOT.md
+- "ship" / "release" → Run release readiness, rollback, and final sign-off
+- "snapshot" / "save" → Update CONTEXT.md + HANDOFF.md
+- "handoff" / "resume" → Prepare or read the handoff note
 - "@[agent]" → Talk to specific agent
 
 ## SPECS
-- \`.citadel/specs/prd.md\` — Product requirements
-- \`.citadel/specs/adr.md\` — Architecture decisions
-- \`.citadel/specs/security.md\` — Security
-- \`.citadel/specs/data-model.md\` — Data model
-- \`.citadel/specs/growth.md\` — Growth
+- \`citadel/specs/prd.md\` — Product requirements
+- \`citadel/specs/adr.md\` — Architecture decisions
+- \`citadel/specs/implementation-plan.md\` — Delivery plan before makers start
+- \`citadel/specs/security.md\` — Security
+- \`citadel/specs/data-model.md\` — Data model
+- \`citadel/specs/growth.md\` — Growth
 `;
 }
 function buildCodexRulesContent() {
@@ -176,21 +199,25 @@ You are ATLAS, orchestrating a ${c.total}-agent delivery system inside Codex.
 8. Use progressive disclosure inside skill files: read the Section Index, then only the relevant sections.
 
 ## Minimal file loading
-- Always first: \`.citadel/skills/rules_essential.md\`, \`.citadel/vault/PROGRESS.md\`
-- Resume only if needed: \`.citadel/vault/CONTEXT_SNAPSHOT.md\`
+- Always first: \`.citadel/skills/rules_essential.md\`, \`citadel/STATUS.md\`
+- Resume only if needed: \`citadel/CONTEXT.md\`, \`citadel/HANDOFF.md\`, \`skills/skills_context_manager.md\`
+- Existing code area: \`citadel/CODEBASE.md\`
 - Frontend/UI: \`.citadel/teams/frontend-pod.md\`, \`skills/skills_frontend.md\`, \`skills/skills_uiux.md\`, \`skills/skills_visual_design.md\`, \`skills/skills_design_system.md\`, \`skills/skills_implementation_plan.md\`
 - Backend: \`.citadel/teams/backend-pod.md\`, \`skills/skills_backend.md\`, \`skills/skills_data.md\`, \`skills/skills_implementation_plan.md\`
+- Fix/hotfix: \`citadel/RUNBOOK.md\`, relevant pod, \`skills/skills_hotfix_rca.md\`, \`skills/skills_change_safety.md\`
 - Review/coherence: relevant pod + \`skills/skills_change_safety.md\`
 - Security: \`.citadel/teams/ciso-all.md\`, \`skills/skills_security.md\`
+- Ship/release: \`citadel/RUNBOOK.md\`, \`skills/skills_release_runbook.md\`, \`.citadel/teams/ciso-all.md\`
 - Within any skill file, read the Section Index first and jump only to the needed sections.
 
 ## Required workflow
-1. Clarify or resume current phase.
-2. Draft implementation plan.
+1. Clarify or resume current phase and mode (Start, Build, Fix, or Ship).
+2. Draft or refresh the implementation plan.
 3. Makers debate internally.
 4. Checkers review.
 5. LINUS issues the coherence verdict.
-6. Speak to the user only with the consolidated result.
+6. Update the visible project hub when the phase or decision changes.
+7. Speak to the user only with the consolidated result.
 
 ## Response shape
 - Plan
@@ -234,18 +261,31 @@ export function installClaudeCode(projectPath) {
     const cmdDir = join(projectPath, '.claude', 'commands');
     mkdirSync(cmdDir, { recursive: true });
     writeFileSync(join(cmdDir, 'citadel-help.md'), `You are ATLAS. Read CLAUDE.md for rules. Show current phase, progress, next steps. Guide the user.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-start.md'), `Read CLAUDE.md. Run Start mode: clarify the problem, constraints, priorities, and success criteria. Draft or refine citadel/specs/prd.md and citadel/specs/implementation-plan.md only after the user answers.`, 'utf-8');
     writeFileSync(join(cmdDir, 'citadel-build.md'), `Read CLAUDE.md. Load ONLY the smallest relevant files. Follow: implementation plan -> makers -> checkers -> CTO coherence review -> consolidated answer.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-fix.md'), `Read CLAUDE.md. Run Fix mode: load citadel/RUNBOOK.md, relevant pod, skills_hotfix_rca.md, and skills_change_safety.md. Protect existing invariants before proposing changes.`, 'utf-8');
     writeFileSync(join(cmdDir, 'citadel-review.md'), `Read the relevant pod and skills_change_safety.md. Run checker review plus LINUS coherence verdict. PASS/FAIL with concrete flags.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-ship.md'), `Read CLAUDE.md. Run Ship mode with citadel/RUNBOOK.md, skills_release_runbook.md, LINUS, KELSEY, and BRUCE. Check release readiness, rollback, monitoring, and security before saying done.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-estimate.md'), `Read CLAUDE.md, citadel/TOKENS.md, citadel/STATUS.md, and only the minimal files implied by the task. Estimate context pressure before execution: budget fit, risky files, and whether to split the task.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-snapshot.md'), `Read CLAUDE.md. Update citadel/STATUS.md, citadel/CONTEXT.md, citadel/HANDOFF.md, and citadel/SESSION_LOG.md with the minimum useful summary.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-handoff.md'), `Read CLAUDE.md. Prepare a clean handoff using citadel/HANDOFF.md, citadel/STATUS.md, and citadel/DECISIONS.md. Call out what must not break and what should happen next.`, 'utf-8');
     writeFileSync(join(cmdDir, 'citadel-security.md'), `You are BRUCE (CISO). Read .citadel/teams/ciso-all.md plus skills/skills_security.md. Full security audit. You have ABSOLUTE VETO POWER.`, 'utf-8');
-    writeFileSync(join(cmdDir, 'citadel-status.md'), `Read .citadel/memory/session.json and .citadel/gates/. Show phase, gate progress, next steps.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-status.md'), `Read .citadel/state/session.json, citadel/STATUS.md, citadel/TOKENS.md, and .citadel/gates/. Show phase, mode, gate progress, blockers, token pressure, and next steps.`, 'utf-8');
 }
 export function installCursor(projectPath) {
     writeFileSync(join(projectPath, '.cursorrules'), buildRulesContent(), 'utf-8');
     const cmdDir = join(projectPath, '.cursor', 'commands');
     mkdirSync(cmdDir, { recursive: true });
-    writeFileSync(join(cmdDir, 'citadel-help.md'), `Read .cursorrules and .citadel/ directory. Show current phase, next steps.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-help.md'), `Read .cursorrules, citadel/STATUS.md, and citadel/HANDOFF.md if needed. Show current phase, next steps, and the safest mode to use.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-start.md'), `Read .cursorrules. Run Start mode: clarify the problem, constraints, priorities, and success criteria before drafting specs.`, 'utf-8');
     writeFileSync(join(cmdDir, 'citadel-build.md'), `Read .cursorrules. Follow implementation plan -> makers -> checkers -> CTO coherence review. Do not return raw maker output.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-fix.md'), `Read .cursorrules. Run Fix mode with citadel/RUNBOOK.md, skills_hotfix_rca.md, and skills_change_safety.md.`, 'utf-8');
     writeFileSync(join(cmdDir, 'citadel-review.md'), `Read the relevant pod plus skills_change_safety.md. Review with checkers, then issue LINUS coherence verdict.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-ship.md'), `Read .cursorrules. Run Ship mode with citadel/RUNBOOK.md, skills_release_runbook.md, and the CTO/CISO sign-off flow.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-estimate.md'), `Read .cursorrules, citadel/TOKENS.md, and citadel/STATUS.md. Estimate context pressure before execution and recommend whether to proceed, split, or snapshot first.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-snapshot.md'), `Read .cursorrules. Update citadel/STATUS.md, citadel/CONTEXT.md, citadel/HANDOFF.md, and citadel/SESSION_LOG.md.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-handoff.md'), `Read .cursorrules. Prepare a clean handoff using citadel/HANDOFF.md, citadel/STATUS.md, and citadel/DECISIONS.md.`, 'utf-8');
+    writeFileSync(join(cmdDir, 'citadel-status.md'), `Read .citadel/state/session.json, citadel/STATUS.md, citadel/TOKENS.md, and .citadel/gates/. Show phase, mode, gate progress, blockers, token pressure, and next steps.`, 'utf-8');
 }
 export function installAntigravity(projectPath) {
     writeFileSync(join(projectPath, 'GEMINI.md'), buildRulesContent(), 'utf-8');

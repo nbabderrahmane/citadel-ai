@@ -58,6 +58,7 @@ export class Orchestrator {
     this.gates = new GateSystem(config.projectPath);
     this.loops = new LoopManager();
     this.llm = createLLMProvider(config.llm);
+    this.totalTokens = this.memory.getTokenSummary()?.used ?? 0;
   }
 
   getMemory(): Memory { return this.memory; }
@@ -102,6 +103,7 @@ export class Orchestrator {
     // Call LLM
     const response = await this.llm.chat(messages);
     this.totalTokens += response.tokensUsed;
+    this.memory.recordTokenUsage(agentId, response.tokensUsed, response.model);
 
     // Format response with agent identity
     const formatted = this.formatResponse(agent.icon, agent.name, agent.title, response.content);
@@ -255,6 +257,7 @@ export class Orchestrator {
     const messages = this.buildCollaborativePrompt(panel, phase, userMessage);
     const response = await this.llm.chat(messages);
     this.totalTokens += response.tokensUsed;
+    this.memory.recordTokenUsage('atlas', response.tokensUsed, response.model);
 
     return this.formatResponse('⚡', 'ATLAS', `${panel.name} Lead`, response.content);
   }
@@ -375,6 +378,7 @@ export class Orchestrator {
     const phase = session.currentPhase;
     const gate = PHASE_GATES[phase];
     const progress = this.gates.getProgressSummary(gate);
+    const tokens = this.memory.getTokenSummary();
     const agents = PHASE_AGENTS[phase].map(id => {
       const a = getAgent(id);
       return a ? `  ${a.icon} ${a.name} — ${a.title}` : `  ${id}`;
@@ -386,6 +390,7 @@ export class Orchestrator {
 📍 Phase: ${phase.toUpperCase()}
 🚧 Gate: ${gate}
 ${progress}
+${tokens ? `\n🧮 Tokens: ${tokens.used.toLocaleString()} / ${tokens.limit.toLocaleString()} (${tokens.level}, ${tokens.status})\n   Advice: ${tokens.advice}\n` : ''}
 
 👥 Active agents:
 ${agents}
@@ -394,6 +399,7 @@ ${agents}
 • Describe what you want to build
 • Ask a specific question (I'll route to the right expert)
 • Type "status" to see gate progress
+• Type "estimate [task]" to check context pressure before a heavy turn
 • Type "advance" to move to next phase
 • Mention an agent by name (@linus, @bruce, etc.)
 `;

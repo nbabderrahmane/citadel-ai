@@ -26,13 +26,14 @@ export async function runCommand() {
         console.log(`   export ANTHROPIC_API_KEY=sk-ant-...`);
         console.log(`   export OPENAI_API_KEY=sk-...\n`);
         console.log(`💡 The interactive CLI needs an API key. For IDE-only usage,`);
-        console.log(`   just open your project in Codex, Claude Code, Cursor, Antigravity, or Windsurf.\n`);
+        console.log(`   just open your project in Codex, Claude Code, Cursor, Antigravity, or Windsurf.`);
+        console.log(`   Your human-readable project hub lives in: citadel/\n`);
         process.exit(1);
     }
     // Build config
     const raw = JSON.parse(readFileSync(configPath, 'utf-8'));
     const config = {
-        version: raw.version ?? '1.4.0',
+        version: raw.version ?? '11.0.0',
         llm: { ...llm, maxTokens: 4096, temperature: 0.7 },
         projectPath: pp,
         citadelPath: join(pp, '.citadel'),
@@ -62,8 +63,34 @@ export async function runCommand() {
         if (t.toLowerCase() === 'status') {
             const s = orc.getMemory().getSession();
             if (s) {
+                orc.getMemory().refreshProjectHub();
+                const tokens = orc.getMemory().getTokenSummary();
+                const estimate = orc.getMemory().getContextEstimate();
                 console.log(divider() + `Phase: ${s.currentPhase} | Gate: ${s.currentGate}`);
+                if (tokens) {
+                    console.log(`Tokens: ${tokens.used.toLocaleString()} / ${tokens.limit.toLocaleString()} (${tokens.level}, ${tokens.status})`);
+                    console.log(`Calls: ${tokens.requestCount} | Last: ${tokens.lastResponseTokens.toLocaleString()} | Peak: ${tokens.peakResponseTokens.toLocaleString()}`);
+                    console.log(`Advice: ${tokens.advice}`);
+                }
+                if (estimate) {
+                    console.log(`Estimate: ${estimate.estimatedTokens.toLocaleString()} / ${estimate.limit.toLocaleString()} (${estimate.budgetLevel}, ${estimate.status})`);
+                    console.log(`Estimate advice: ${estimate.advice}`);
+                }
                 console.log(orc.getGates().getProgressSummary(s.currentGate));
+            }
+            rl.prompt();
+            return;
+        }
+        if (t.toLowerCase().startsWith('estimate')) {
+            const hint = t.slice('estimate'.length).trim();
+            orc.getMemory().refreshProjectHub(hint);
+            const estimate = orc.getMemory().getContextEstimate(hint);
+            if (estimate) {
+                console.log(divider() + `Estimated load: ${estimate.estimatedTokens.toLocaleString()} / ${estimate.limit.toLocaleString()} (${estimate.budgetLevel}, ${estimate.status})`);
+                console.log(`Split: conversation ${estimate.conversationTokens.toLocaleString()} | files ${estimate.fileTokens.toLocaleString()} | system ${estimate.systemTokens.toLocaleString()}`);
+                if (estimate.taskHint)
+                    console.log(`Task hint: ${estimate.taskHint}`);
+                console.log(`Advice: ${estimate.advice}`);
             }
             rl.prompt();
             return;
